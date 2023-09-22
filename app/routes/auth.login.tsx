@@ -20,11 +20,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request, context }: ActionFunctionArgs) => {
   const res = await authenticator.authenticate('form', request, {
     successRedirect: '/',
-    failureRedirect: '/login',
+    failureRedirect: '/auth/login',
     throwOnError: true,
     context
   });
-  console.log(res);
   return res;
 }
 
@@ -32,8 +31,10 @@ export default function Login() {
   const loaderData = useLoaderData<typeof loader>();
 
   return <div>
-    Login page
-    <Form method="post">
+    <h1>
+      Login page
+    </h1>
+    <Form method="post" className="flex flex-col w-2/4">
       <input type="email" name="email" placeholder="Email" required />
       <input type="password" name="password" placeholder="Password" required />
       <button>Sign in</button>

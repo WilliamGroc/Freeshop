@@ -1,8 +1,14 @@
 import { Authenticator, AuthorizationError } from "remix-auth";
-import { User, sessionStorage } from "./session.server";
+import { SessionUser, getSession, sessionStorage } from "./session.server";
 import { FormStrategy } from "remix-auth-form";
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { prisma } from "./db.server";
+import { User } from "@prisma/client";
 
-const authenticator = new Authenticator<User | Error | null>(sessionStorage, {
+const jwtSecret = 'tHeS3cRèt';
+
+const authenticator = new Authenticator<SessionUser | Error | null>(sessionStorage, {
   sessionKey: 'sessionKey',
   sessionErrorKey: 'sessionErrorKey'
 });
@@ -11,8 +17,6 @@ authenticator.use(
   new FormStrategy(async ({ form }) => {
     const email = form.get('email');
     const password = form.get('password');
-
-    let user = null;
 
     // do some validation, errors are in the sessionErrorKey
     if (!email || email?.length === 0) throw new AuthorizationError('Bad Credentials: Email is required')
@@ -23,17 +27,20 @@ authenticator.use(
     if (typeof password !== 'string')
       throw new AuthorizationError('Bad Credentials: Password must be a string')
 
-    // login the user, this could be whatever process you want
-    if (email === 'aaron@mail.com' && password === 'password') {
-      user = {
-        name: email,
-        token: `${password}-${new Date().getTime()}`,
-      };
+    const user = await prisma.user.findFirst({
+      where: {
+        email: email,
+      }
+    })
 
-      // the type of this user must match the type you pass to the Authenticator
-      // the strategy will automatically inherit the type if you instantiate
-      // directly inside the `use` method
-      return await Promise.resolve({ ...user });
+    // login the user, this could be whatever process you want
+    if (user && await bcrypt.compare(password, user.password)) {
+
+      const sessionUser: SessionUser = {
+        token: signToken(user)
+      }
+
+      return await Promise.resolve({ ...sessionUser });
 
     } else {
       // if problem with user throw error AuthorizationError
@@ -41,5 +48,45 @@ authenticator.use(
     }
   })
 );
+
+export async function hash(str: string): Promise<string> {
+  return bcrypt.hash(str, 10);
+}
+
+export async function getToken(request: Request): Promise<string> {
+  const session = await getSession(request.headers.get('cookie'));
+  return session.get(authenticator.sessionKey).token;
+}
+
+export function signToken(user: User): string {
+  const payload = {
+    id: user.id,
+  }
+
+  return jwt.sign(payload, jwtSecret, { expiresIn: '1h', algorithm: 'HS256' })
+}
+
+export async function verifyToken(request: Request): Promise<void> {
+  const token = await getToken(request);
+  jwt.verify(token, jwtSecret);
+}
+
+export async function getAuthenticatedUser(request: Request): Promise<Partial<User> | null> {
+
+  const decodedToken = jwt.decode(await getToken(request)) as any;
+
+  const user = await prisma.user.findFirst({
+    select: {
+      id: true,
+      email: true
+    },
+    where: {
+      id: decodedToken.id
+    }
+  });
+
+
+  return user;
+}
 
 export default authenticator;

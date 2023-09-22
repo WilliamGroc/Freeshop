@@ -13,7 +13,6 @@ export const sessionStorage = createCookieSessionStorage({
 
 export const { getSession, commitSession, destroySession } = sessionStorage;
 
-export type User = {
-  name: string,
+export type SessionUser = {
   token: string
 }

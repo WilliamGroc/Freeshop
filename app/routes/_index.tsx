@@ -1,33 +1,19 @@
-import type { ActionFunction, ActionFunctionArgs, LoaderFunction, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import authenticator from "~/services/auth.server";
+import ArticleCard from "~/components/articleCard"
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "New Remix App" },
-    { name: "description", content: "Welcome to Remix!" },
-  ];
-};
-
-export let loader = async ({ request }: LoaderFunctionArgs) => {
-  return await authenticator.isAuthenticated(request, {
-    failureRedirect: "/login",
-  });
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  await authenticator.logout(request, { redirectTo: "/login" });
-};
-
-export default function Index() {
-  const data = useLoaderData<typeof loader>();
-
-  return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
-      <h1>Welcome to Remix {data?.name}</h1>
-      <form method="post">
-        <button>Logout</button>
-      </form>
-    </div>
-  );
+export default function Home() {
+  const articles = [
+    {
+      id: 1,
+      name: 'Test',
+      description: 'My toy',
+      price: 12.3,
+      img: []
+    }
+  ]
+  return <div>
+    Store
+    {
+      articles.map(article => <ArticleCard key={article.id} article={article} />)
+    }
+  </div>
 }
